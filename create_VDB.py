@@ -51,7 +51,7 @@ class QAChromaDB:
         return chunks
 
     def store_embeddings_in_chroma(self, text_chunks, filename):
-        self.vecordb.add_texts(
+        self.vectordb.add_texts(
             texts=text_chunks,
             metadatas=[{"filename": filename, "chunk_id": i} for i in range(len(text_chunks))],
             ids = [f"{filename}_{i}" for i in range(len(text_chunks))]

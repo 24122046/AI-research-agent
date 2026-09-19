@@ -5,19 +5,6 @@ from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 import shutil
 
-class SentenceTransformerEmbedding:
-    def __init__(self,model_name):
-        self.model = SentenceTransformer(model_name)
-
-    def __call__(self,documents):
-        return self.embed_documents(documents)
-
-    def embed_query(self,query):
-        return self.model.encode(query, convert_to_tensor=True).tolist()
-
-    def embed_documents(self,documents):
-        return self.model.encode(documents,convert_to_tensor=True).tolist()
-
 class QAChromaDB:
     def __init__(self,persist_directory="new_VDB/"):
         logging.basicConfig(filename='processing_log.log', level=logging.INFO)
@@ -87,10 +74,6 @@ class QAChromaDB:
             except Exception as e:
                 logging.error(f"Error processing file {filename}: {e}")
                 break
-
-    def query_chroma(self, query_text, n_results=3):
-        results = self.vectordb.similarity_search_with_score(query=query_text, k=n_results)
-        return results
 
     def query_chroma(self, query_text, n_results=3):
         results = self.vectordb.similarity_search_with_score(query=query_text, k=n_results)

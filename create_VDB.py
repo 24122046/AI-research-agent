@@ -19,10 +19,10 @@ class QAChromaDB:
             embedding_function=self.embedding_function
         )
 
-    def read_txt_files(self, directory):
+    def read_markdown_files(self, directory):
         texts = {}
         for filename in os.listdir(directory):
-            if filename.endswith(".txt"):
+            if filename.endswith(".md"):
                 with open(os.path.join(directory,filename),'r',encoding='utf-8') as file:
                     texts[filename] = file.read()
         return texts

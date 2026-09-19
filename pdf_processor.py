@@ -1,7 +1,8 @@
 import os
 import logging
 import pymupdf4llm
-
+import hashlib
+import json
 
 class PDFProcessor:
 
@@ -19,28 +20,6 @@ class PDFProcessor:
     def save_markdown(self, markdown, output_path):
         with open(output_path, "w", encoding="utf-8") as file:
             file.write(markdown)
-
-
-    def get_processed_files(self):
-        if os.path.exists("processed_pdf.log"):
-            with open(
-                "processed_pdf.log",
-                "r",
-                encoding="utf-8"
-            ) as file:
-                return set(file.read().splitlines())
-
-        return set()
-
-
-    def log_processed_file(self, filename):
-        with open(
-            "processed_pdf.log",
-            "a",
-            encoding="utf-8"
-        ) as file:
-            file.write(f"{filename}\n")
-
 
     def process_pdf(self, pdf_path, output_folder):
         os.makedirs(output_folder, exist_ok=True)
@@ -65,55 +44,62 @@ class PDFProcessor:
 
         return output_path
 
-
     def process_folder(self, pdf_folder, output_folder):
         os.makedirs(output_folder, exist_ok=True)
 
-        processed_files = self.get_processed_files()
+        # Mỗi thư mục Markdown có trạng thái xử lý PDF riêng
+        state_path = os.path.join(output_folder, "processed_pdf.json")
+
+        processed_files = {}
+
+        if os.path.isfile(state_path):
+            with open(state_path, "r", encoding="utf-8") as file:
+                processed_files = json.load(file)
 
         for filename in os.listdir(pdf_folder):
-
             if not filename.lower().endswith(".pdf"):
                 continue
+
+            pdf_path = os.path.join(pdf_folder, filename)
+
+            if not os.path.isfile(pdf_path):
+                continue
+
+            # Dùng đường dẫn đầy đủ để phân biệt PDF trùng tên
+            file_key = os.path.abspath(pdf_path)
 
             markdown_path = os.path.join(
                 output_folder,
                 os.path.splitext(filename)[0] + ".md"
             )
 
-            if filename in processed_files and os.path.isfile(markdown_path):
-
-                logging.info(
-                    f"Skipping already processed PDF: {filename}"
-                )
-
-                continue
-
-            pdf_path = os.path.join(
-                pdf_folder,
-                filename
-            )
-
-            logging.info(
-                f"Processing PDF: {filename}"
-            )
-
             try:
-                output_path = self.process_pdf(
-                    pdf_path,
-                    output_folder
-                )
+                with open(pdf_path, "rb") as file:
+                    content_hash = hashlib.sha256(file.read()).hexdigest()
 
-                self.log_processed_file(filename)
+                # PDF không đổi và Markdown vẫn tồn tại thì bỏ qua
+                if (
+                        processed_files.get(file_key) == content_hash
+                        and os.path.isfile(markdown_path)
+                ):
+                    logging.info(f"Skipping unchanged PDF: {filename}")
+                    continue
 
-                logging.info(
-                    f"Successfully processed PDF: "
-                    f"{filename} -> {output_path}"
-                )
+                self.process_pdf(pdf_path, output_folder)
 
-            except Exception as e:
+                # Chỉ ghi nhận sau khi tạo Markdown thành công
+                processed_files[file_key] = content_hash
 
-                logging.error(
-                    f"Error processing PDF "
-                    f"{filename}: {e}"
-                )
+                with open(state_path, "w", encoding="utf-8") as file:
+                    json.dump(
+                        processed_files,
+                        file,
+                        ensure_ascii=False,
+                        indent=2
+                    )
+
+                logging.info(f"Successfully processed PDF: {filename}")
+
+            except Exception:
+                logging.exception(f"Error processing PDF: {filename}")
+                raise

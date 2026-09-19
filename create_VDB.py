@@ -4,12 +4,19 @@ from sentence_transformers import SentenceTransformer
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 import shutil
+import hashlib
+import json
 
 class QAChromaDB:
     def __init__(self,embedding_model_name,collection_name,persist_directory="VectorDatabase/"):
         logging.basicConfig(filename='processing_log.log', level=logging.INFO)
 
         self.persist_directory = persist_directory
+
+        self.processed_log_path = os.path.join(
+            persist_directory,
+            f"{collection_name}_processed.json"
+        )
 
         self.embedding_function = HuggingFaceEmbeddings(model_name=embedding_model_name)
 
@@ -50,32 +57,62 @@ class QAChromaDB:
         )
         print(f"Stored {len(text_chunks)} chunks for file: {filename}")
 
-    def get_processed_files(self):
-        if os.path.exists('processed_files.log'):
-            with open('processed_files.log','r') as file:
-                return set(file.read().splitlines())
-        return set()
-
-    def log_processed_file(self, filename):
-        with open('processed_files.log', 'a') as file:
-            file.write(f"{filename}\n")
-
-    def ingest_files(self, directory,chunk_size,overlap, reset=False):
-
+    def ingest_files(self, directory, chunk_size, overlap, reset=False):
         texts = self.read_markdown_files(directory)
-        processed_files = self.get_processed_files()
+
+        os.makedirs(self.persist_directory, exist_ok=True)
+
+        # Đọc trạng thái: tên file -> hash nội dung
+        processed_files = {}
+
+        if os.path.isfile(self.processed_log_path):
+            with open(self.processed_log_path, "r", encoding="utf-8") as file:
+                processed_files = json.load(file)
 
         for filename, text in texts.items():
-            if filename in processed_files:
-                logging.info(f"Skipping already processed file: {filename}")
+            content_hash = hashlib.sha256(
+                text.encode("utf-8")
+            ).hexdigest()
+
+            # Tìm các chunk hiện có của tài liệu
+            old_ids = self.vectordb.get(
+                where={"filename": filename}
+            )["ids"]
+
+            # Chỉ bỏ qua nếu nội dung không đổi và database còn dữ liệu
+            if processed_files.get(filename) == content_hash and old_ids:
+                logging.info(f"Skipping unchanged file: {filename}")
                 continue
 
-            logging.info(f"Processing file: {filename}")
             try:
-                text_chunks = self.split_text_into_chunks_with_overlap(text,chunk_size=chunk_size,overlap=overlap)
-                self.store_embeddings_in_chroma(text_chunks, filename)
-                self.log_processed_file(filename)
+                text_chunks = self.split_text_into_chunks_with_overlap(
+                    text,
+                    chunk_size=chunk_size,
+                    overlap=overlap
+                )
+
+                # Xóa toàn bộ chunk cũ để tránh giữ lại nội dung lỗi thời
+                if old_ids:
+                    self.vectordb.delete(ids=old_ids)
+
+                if text_chunks:
+                    self.store_embeddings_in_chroma(text_chunks, filename)
+
+                # Chỉ cập nhật trạng thái sau khi xử lý thành công
+                processed_files[filename] = content_hash
+
+                with open(
+                        self.processed_log_path, "w", encoding="utf-8"
+                ) as file:
+                    json.dump(
+                        processed_files,
+                        file,
+                        ensure_ascii=False,
+                        indent=2
+                    )
+
                 logging.info(f"Successfully processed file: {filename}")
+
             except Exception:
                 logging.exception(f"Error processing file: {filename}")
                 raise
@@ -84,7 +121,7 @@ class QAChromaDB:
         results = self.vectordb.similarity_search_with_score(query=query_text, k=n_results)
         return results
 
-    def main(self, mode, directory=None,chunk_size = None ,overlap = None, query_text=None, reset=False, n_results=5):
+    def main(self, mode, directory=None,chunk_size = 512 ,overlap = 100, query_text=None, reset=False, n_results=5):
         if mode == "ingest" and directory:
             print(f"Ingesting files from directory: {directory}")
             self.ingest_files(directory,chunk_size,overlap, reset=reset)
@@ -99,14 +136,3 @@ class QAChromaDB:
             print("Invalid mode or missing arguments. Use 'ingest' with a directory or 'query' with a query text.")
             result = " "
         return result
-
-# Example usage:
-if __name__ == "__main__":
-    db = QAChromaDB('BAAI/bge-m3','QApaper')
-
-    # # Example of data ingestion with VDB reset
-    db.main(mode="ingest", directory="dataset/data_clean/textbooks/en/", reset=True)
-
-    # Example of querying
-    aa=db.main(mode="query", query_text="symptoms of drug diabetes?",n_results=1)
-    print(aa)

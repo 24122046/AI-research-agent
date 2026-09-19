@@ -6,15 +6,15 @@ from langchain_huggingface import HuggingFaceEmbeddings
 import shutil
 
 class QAChromaDB:
-    def __init__(self,persist_directory="new_VDB/"):
+    def __init__(self,embedding_model_name,collection_name,persist_directory="VectorDatabase/"):
         logging.basicConfig(filename='processing_log.log', level=logging.INFO)
 
         self.persist_directory = persist_directory
 
-        self.embedding_function = HuggingFaceEmbeddings(model_name='BAAI/bge-m33')
+        self.embedding_function = HuggingFaceEmbeddings(model_name=embedding_model_name)
 
         self.vectordb = Chroma(
-            collection_name= "QA_papers",
+            collection_name= collection_name,
             persist_directory=persist_directory,
             embedding_function=self.embedding_function
         )
@@ -97,7 +97,7 @@ class QAChromaDB:
 
 # Example usage:
 if __name__ == "__main__":
-    db = QAChromaDB()
+    db = QAChromaDB('BAAI/bge-m33','QApaper')
 
     # # Example of data ingestion with VDB reset
     db.main(mode="ingest", directory="dataset/data_clean/textbooks/en/", reset=True)

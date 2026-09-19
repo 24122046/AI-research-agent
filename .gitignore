@@ -4,3 +4,4 @@ __pycache__/
 new_VDB/
 *.log
 *.pdf
+*.env

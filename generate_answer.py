@@ -3,10 +3,10 @@ from langchain_groq import ChatGroq
 
 
 class AnswerGenerator:
-    def __init__(self, template, model_name):
+    def __init__(self, template, model_name, temperature = 0.3):
         self.llm =  ChatGroq(
             model_name = model_name,
-            temperature = 0.3,
+            temperature = temperature,
             max_retries = 2
         )
         self.prompt = PromptTemplate(

@@ -57,7 +57,7 @@ class QAChromaDB:
 
     def ingest_files(self, directory, reset=False):
 
-        texts = self.read_txt_files(directory)
+        texts = self.read_markdown_files(directory)
         processed_files = self.get_processed_files()
 
         for filename, text in texts.items():
@@ -97,7 +97,7 @@ class QAChromaDB:
 
 # Example usage:
 if __name__ == "__main__":
-    db = QAChromaDB('BAAI/bge-m33','QApaper')
+    db = QAChromaDB('BAAI/bge-m3','QApaper')
 
     # # Example of data ingestion with VDB reset
     db.main(mode="ingest", directory="dataset/data_clean/textbooks/en/", reset=True)

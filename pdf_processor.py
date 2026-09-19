@@ -1,8 +1,15 @@
 import os
+import logging
 import pymupdf4llm
 
 
 class PDFProcessor:
+
+    def __init__(self):
+        logging.basicConfig(
+            filename="processing_log.log",
+            level=logging.INFO
+        )
 
     def pdf_to_markdown(self, pdf_path):
         markdown = pymupdf4llm.to_markdown(pdf_path)
@@ -14,22 +21,93 @@ class PDFProcessor:
             file.write(markdown)
 
 
+    def get_processed_files(self):
+        if os.path.exists("processed_pdf.log"):
+            with open(
+                "processed_pdf.log",
+                "r",
+                encoding="utf-8"
+            ) as file:
+                return set(file.read().splitlines())
+
+        return set()
+
+
+    def log_processed_file(self, filename):
+        with open(
+            "processed_pdf.log",
+            "a",
+            encoding="utf-8"
+        ) as file:
+            file.write(f"{filename}\n")
+
+
     def process_pdf(self, pdf_path, output_folder):
         os.makedirs(output_folder, exist_ok=True)
 
         markdown = self.pdf_to_markdown(pdf_path)
 
         filename = os.path.basename(pdf_path)
-        filename = os.path.splitext(filename)[0] + ".md"
+
+        markdown_filename = (
+            os.path.splitext(filename)[0] + ".md"
+        )
 
         output_path = os.path.join(
             output_folder,
-            filename
+            markdown_filename
         )
 
         self.save_markdown(
-            markdown=markdown,
-            output_path=output_path
+            markdown,
+            output_path
         )
 
         return output_path
+
+
+    def process_folder(self, pdf_folder, output_folder):
+
+        processed_files = self.get_processed_files()
+
+        for filename in os.listdir(pdf_folder):
+
+            if not filename.lower().endswith(".pdf"):
+                continue
+
+            if filename in processed_files:
+
+                logging.info(
+                    f"Skipping already processed PDF: {filename}"
+                )
+
+                continue
+
+            pdf_path = os.path.join(
+                pdf_folder,
+                filename
+            )
+
+            logging.info(
+                f"Processing PDF: {filename}"
+            )
+
+            try:
+                output_path = self.process_pdf(
+                    pdf_path,
+                    output_folder
+                )
+
+                self.log_processed_file(filename)
+
+                logging.info(
+                    f"Successfully processed PDF: "
+                    f"{filename} -> {output_path}"
+                )
+
+            except Exception as e:
+
+                logging.error(
+                    f"Error processing PDF "
+                    f"{filename}: {e}"
+                )

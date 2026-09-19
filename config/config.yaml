@@ -12,7 +12,7 @@ retrieval:
 
 chunking:
   chunk_size: 800
-  chunk_overlap: 100
+  overlap: 100
 
 llm:
   provider: "groq"
@@ -22,3 +22,7 @@ llm:
 logging:
   filename: "processing_log.log"
   level: "INFO"
+
+pdf_processor:
+  pdf_path: 'Data/pdf'
+  output_folder : "Data/markdown"

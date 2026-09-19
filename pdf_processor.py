@@ -67,6 +67,7 @@ class PDFProcessor:
 
 
     def process_folder(self, pdf_folder, output_folder):
+        os.makedirs(output_folder, exist_ok=True)
 
         processed_files = self.get_processed_files()
 
@@ -75,7 +76,12 @@ class PDFProcessor:
             if not filename.lower().endswith(".pdf"):
                 continue
 
-            if filename in processed_files:
+            markdown_path = os.path.join(
+                output_folder,
+                os.path.splitext(filename)[0] + ".md"
+            )
+
+            if filename in processed_files and os.path.isfile(markdown_path):
 
                 logging.info(
                     f"Skipping already processed PDF: {filename}"

@@ -28,6 +28,11 @@ class QAChromaDB:
         return texts
 
     def split_text_into_chunks_with_overlap(self, text, chunk_size=512, overlap=100):
+        if chunk_size <= 0:
+            raise ValueError("chunk_size phải lớn hơn 0")
+
+        if not 0 <= overlap < chunk_size:
+            raise ValueError("overlap phải thỏa 0 <= overlap < chunk_size")
         words = text.split()
         chunks = []
         i = 0
@@ -55,7 +60,7 @@ class QAChromaDB:
         with open('processed_files.log', 'a') as file:
             file.write(f"{filename}\n")
 
-    def ingest_files(self, directory, reset=False):
+    def ingest_files(self, directory,chunk_size,overlap, reset=False):
 
         texts = self.read_markdown_files(directory)
         processed_files = self.get_processed_files()
@@ -67,22 +72,22 @@ class QAChromaDB:
 
             logging.info(f"Processing file: {filename}")
             try:
-                text_chunks = self.split_text_into_chunks_with_overlap(text)
+                text_chunks = self.split_text_into_chunks_with_overlap(text,chunk_size=chunk_size,overlap=overlap)
                 self.store_embeddings_in_chroma(text_chunks, filename)
                 self.log_processed_file(filename)
                 logging.info(f"Successfully processed file: {filename}")
-            except Exception as e:
-                logging.error(f"Error processing file {filename}: {e}")
-                break
+            except Exception:
+                logging.exception(f"Error processing file: {filename}")
+                raise
 
     def query_chroma(self, query_text, n_results=3):
         results = self.vectordb.similarity_search_with_score(query=query_text, k=n_results)
         return results
 
-    def main(self, mode, directory=None, query_text=None, reset=False, n_results=5):
+    def main(self, mode, directory=None,chunk_size = None ,overlap = None, query_text=None, reset=False, n_results=5):
         if mode == "ingest" and directory:
             print(f"Ingesting files from directory: {directory}")
-            self.ingest_files(directory, reset=reset)
+            self.ingest_files(directory,chunk_size,overlap, reset=reset)
             print("Ingestion complete.")
             result = ' '
         elif mode == "query" and query_text:
